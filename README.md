@@ -98,8 +98,35 @@ rejected.
 
 GitHub Actions runs on pushes to `main` and on pull requests. The CI workflow
 installs dependencies with `npm ci`, audits production dependencies, runs lint,
-typecheck, tests, a production Next.js build, and a Docker image build. Dependabot
-is configured for weekly npm and GitHub Actions updates.
+typecheck, tests, a production Next.js build, and a Docker image build. Pull
+requests build the image without publishing it. Pushes to `main` and version tags
+publish a public multi-platform Docker image to Docker Hub after the verification
+job passes when Docker Hub credentials are configured. Dependabot is configured
+for weekly npm and GitHub Actions updates.
+
+### Docker Hub Publishing
+
+Create a public Docker Hub repository named `agent-board`, then configure these
+GitHub Actions values in the GitHub repository settings:
+
+- Variable `DOCKERHUB_USERNAME`: your Docker Hub namespace or username.
+- Secret `DOCKERHUB_TOKEN`: a Docker Hub access token with permission to push to
+  that repository.
+
+The CI workflow publishes:
+
+- `${DOCKERHUB_USERNAME}/agent-board:latest` from the default branch.
+- `${DOCKERHUB_USERNAME}/agent-board:main` from the `main` branch.
+- `${DOCKERHUB_USERNAME}/agent-board:sha-<git-sha>` for traceable builds.
+- Semver tags such as `1.2.3` and `1.2` when you push a Git tag like `v1.2.3`.
+
+If the Docker Hub values are not configured yet, the workflow still verifies and
+builds the image but skips publishing with a warning.
+
+Docker's GitHub Actions docs for the pieces used here:
+
+- Docker Hub login: https://docs.docker.com/build/ci/github-actions/push-multi-registries/
+- Automatic tags and labels: https://docs.docker.com/build/ci/github-actions/manage-tags-labels/
 
 ## Docker And Kubernetes
 
