@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-board
+  labels:
+    app.kubernetes.io/name: agent-board
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agent-board
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agent-board
+    spec:
+      containers:
+        - name: web
+          image: agent-board:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: MONGODB_URI
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: SESSION_SECRET
+            - name: NEXT_PUBLIC_APP_NAME
+              value: Agent Board
+            - name: ATTACHMENT_STORAGE_PROVIDER
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: ATTACHMENT_STORAGE_PROVIDER
+                  optional: true
+            - name: ATTACHMENT_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: ATTACHMENT_BUCKET
+                  optional: true
+            - name: ATTACHMENT_BASE_PREFIX
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: ATTACHMENT_BASE_PREFIX
+                  optional: true
+            - name: ATTACHMENT_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: ATTACHMENT_REGION
+                  optional: true
+            - name: ATTACHMENT_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: ATTACHMENT_ENDPOINT
+                  optional: true
+            - name: ATTACHMENT_FORCE_PATH_STYLE
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: ATTACHMENT_FORCE_PATH_STYLE
+                  optional: true
+            - name: ATTACHMENT_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: ATTACHMENT_ACCESS_KEY_ID
+                  optional: true
+            - name: ATTACHMENT_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: ATTACHMENT_SECRET_ACCESS_KEY
+                  optional: true
+            - name: ATTACHMENT_MAX_BYTES
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: ATTACHMENT_MAX_BYTES
+                  optional: true
+            - name: ATTACHMENT_GCS_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: ATTACHMENT_GCS_PROJECT_ID
+                  optional: true
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-board
+  labels:
+    app.kubernetes.io/name: agent-board
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: agent-board
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

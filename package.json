@@ -1,0 +1,52 @@
+{
+  "name": "agent-board",
+  "version": "0.1.0",
+  "description": "A Trello-style board for agent-ready work with approvals, teams, and private attachments.",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dmidnight/agent-board.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dmidnight/agent-board/issues"
+  },
+  "homepage": "https://github.com/dmidnight/agent-board#readme",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/**/*.test.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1081.0",
+    "@dnd-kit/core": "latest",
+    "@dnd-kit/sortable": "latest",
+    "@dnd-kit/utilities": "latest",
+    "@google-cloud/storage": "^7.21.0",
+    "bcryptjs": "latest",
+    "lucide-react": "latest",
+    "mongoose": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "tsx": "^4.23.0",
+    "typescript": "latest"
+  },
+  "overrides": {
+    "postcss": "^8.5.10",
+    "uuid": "11.1.1"
+  }
+}

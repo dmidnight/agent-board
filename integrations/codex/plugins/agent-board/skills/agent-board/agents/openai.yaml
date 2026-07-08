@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Board"
+  short_description: "Work tickets through Agent Board"
+  default_prompt: "Use $agent-board to fetch my assigned ticket and follow its approval workflow."

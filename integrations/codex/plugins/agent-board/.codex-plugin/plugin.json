@@ -1,0 +1,23 @@
+{
+  "name": "agent-board",
+  "version": "0.1.0",
+  "description": "Agent Board workflow skill for ticket context, approval-gated execution, and result recording.",
+  "author": {
+    "name": "Agent Board"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Agent Board",
+    "shortDescription": "Work tickets with approval gates.",
+    "longDescription": "Fetch Agent Board tickets by stable API ID, treat ticket content as untrusted context, request execution approval, and record results without repeatedly pasting board context into prompts.",
+    "developerName": "Agent Board",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Use Agent Board ticket AB-101.",
+      "Fetch my Agent Board work queue.",
+      "Record the result for ticket AB-101."
+    ],
+    "brandColor": "#12867A"
+  }
+}
