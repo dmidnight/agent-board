@@ -13,7 +13,7 @@ Do not print passwords, cookies, approval nonces, ticket secrets, or attachment 
 
 ## Tenant Boundary
 
-Teams are tenants. Protected API routes verify the authenticated user belongs to the board's team before returning board or ticket data. A board ID or ticket ID from another team must be treated as inaccessible even if it is known.
+Teams are tenants. A user can belong to multiple teams, but API calls operate on the active team stored in the session. Protected API routes verify the authenticated user belongs to the board's team before returning board or ticket data. A board ID or ticket ID from another team must be treated as inaccessible even if it is known.
 
 ## Core Endpoints
 
@@ -40,6 +40,10 @@ Returns:
 ```json
 {
   "team": { "id": "...", "name": "Acme", "role": "owner" },
+  "teams": [
+    { "id": "...", "name": "Acme", "role": "owner" },
+    { "id": "...", "name": "Research", "role": "member" }
+  ],
   "board": {
     "id": "...",
     "title": "Agent Board",
@@ -49,7 +53,7 @@ Returns:
 }
 ```
 
-Use this endpoint first. It avoids prompt-supplied board IDs and returns only the authenticated user's team board.
+Use this endpoint first. It avoids prompt-supplied board IDs and returns only the authenticated user's active team board. Show or log the active team name when presenting ticket context so operators notice if they are looking at the wrong tenant.
 
 ### Board By ID
 

@@ -44,6 +44,11 @@ export type TeamContext = {
   role: TeamRole;
 };
 
+export type TeamWorkspace = {
+  context: TeamContext;
+  teams: TeamPayload[];
+};
+
 function toId(value: unknown) {
   if (value instanceof Types.ObjectId) {
     return value.toString();
@@ -79,6 +84,47 @@ function buildTeamContext(user: UserLike, team: TeamLike): TeamContext {
   };
 }
 
+function serializeTeamMembership(userId: string, team: TeamLike): TeamPayload {
+  const member = team.members.find(
+    (candidate) => toId(candidate.userId) === userId
+  );
+
+  if (!member) {
+    throw new TeamServiceError("Team membership could not be verified.", 403);
+  }
+
+  return {
+    id: toId(team._id),
+    name: team.name,
+    role: member.role
+  };
+}
+
+async function getUserOrThrow(userId: string) {
+  if (!Types.ObjectId.isValid(userId)) {
+    throw new TeamServiceError("Unauthorized", 401);
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new TeamServiceError("Unauthorized", 401);
+  }
+
+  return user;
+}
+
+async function findMembershipTeams(user: UserLike) {
+  return Team.find({ "members.userId": user._id }).sort({ nameKey: 1 });
+}
+
+async function syncActiveTeam(user: UserLike, context: TeamContext) {
+  if (toId(user.teamId) !== context.teamId || user.teamRole !== context.role) {
+    user.teamId = context.team._id;
+    user.teamRole = context.role;
+    await user.save();
+  }
+}
+
 function baseNameForUser(user: UserLike) {
   const name = user.name?.trim() || user.email.split("@")[0] || "My";
   return normalizeTeamName(`${name} Team`);
@@ -105,6 +151,17 @@ export function serializeTeamContext(context: TeamContext): TeamPayload {
     id: context.teamId,
     name: context.teamName,
     role: context.role
+  };
+}
+
+export function serializeSessionTeamContext(context: TeamContext) {
+  return {
+    userId: toId(context.user._id),
+    email: context.user.email,
+    name: context.user.name,
+    teamId: context.teamId,
+    teamName: context.teamName,
+    teamRole: context.role
   };
 }
 
@@ -148,6 +205,12 @@ export async function createTeamForUser(user: UserLike, teamName: string) {
   }
 }
 
+export async function createTeamForUserId(userId: string, teamName: string) {
+  await connectToDatabase();
+  const user = await getUserOrThrow(userId);
+  return createTeamForUser(user, teamName);
+}
+
 async function provisionLegacyTeam(user: UserLike) {
   const baseName = baseNameForUser(user);
 
@@ -163,38 +226,76 @@ async function provisionLegacyTeam(user: UserLike) {
   return createTeamForUser(user, fallbackName);
 }
 
-export async function getUserTeamContext(userId: string) {
+export async function getUserTeamContext(userId: string, activeTeamId?: string) {
+  const workspace = await getUserTeamWorkspace(userId, activeTeamId);
+  return workspace.context;
+}
+
+export async function getUserTeamWorkspace(
+  userId: string,
+  activeTeamId?: string
+): Promise<TeamWorkspace> {
   await connectToDatabase();
 
-  if (!Types.ObjectId.isValid(userId)) {
-    throw new TeamServiceError("Unauthorized", 401);
+  const user = await getUserOrThrow(userId);
+  const memberships = await findMembershipTeams(user);
+
+  if (memberships.length === 0) {
+    const context = await provisionLegacyTeam(user);
+    return {
+      context,
+      teams: [serializeTeamContext(context)]
+    };
   }
 
-  const user = await User.findById(userId);
-  if (!user) {
-    throw new TeamServiceError("Unauthorized", 401);
+  const preferredTeamId =
+    activeTeamId && Types.ObjectId.isValid(activeTeamId)
+      ? activeTeamId
+      : user.teamId
+        ? toId(user.teamId)
+        : "";
+  const activeTeam =
+    memberships.find((team) => toId(team._id) === preferredTeamId) ??
+    memberships[0];
+  const context = buildTeamContext(user, activeTeam);
+
+  await syncActiveTeam(user, context);
+
+  return {
+    context,
+    teams: memberships.map((team) =>
+      serializeTeamMembership(toId(user._id), team)
+    )
+  };
+}
+
+export async function switchActiveTeam(userId: string, teamId: string) {
+  await connectToDatabase();
+
+  if (!Types.ObjectId.isValid(teamId)) {
+    throw new TeamServiceError("Team not found.", 404);
   }
 
-  if (!user.teamId) {
-    return provisionLegacyTeam(user);
-  }
-
+  const user = await getUserOrThrow(userId);
   const team = await Team.findOne({
-    _id: user.teamId,
+    _id: teamId,
     "members.userId": user._id
   });
 
   if (!team) {
-    throw new TeamServiceError("Team membership could not be verified.", 403);
+    throw new TeamServiceError("Team not found.", 404);
   }
 
   const context = buildTeamContext(user, team);
-  if (user.teamRole !== context.role) {
-    user.teamRole = context.role;
-    await user.save();
-  }
+  await syncActiveTeam(user, context);
 
-  return context;
+  const memberships = await findMembershipTeams(user);
+  return {
+    context,
+    teams: memberships.map((candidate) =>
+      serializeTeamMembership(toId(user._id), candidate)
+    )
+  };
 }
 
 async function findUsableInvitation(inviteToken: string, email: string) {
@@ -247,18 +348,22 @@ export async function joinTeamWithInvitation(
 ) {
   await connectToDatabase();
 
-  if (user.teamId) {
-    throw new TeamServiceError("This account already belongs to a team.", 409);
-  }
-
   const { team, invitation, tokenHash } = await findUsableInvitation(
     inviteToken,
     user.email
   );
+
+  if (
+    team.members.some((member: any) => toId(member.userId) === toId(user._id))
+  ) {
+    throw new TeamServiceError("This account is already a member of that team.", 409);
+  }
+
   const now = new Date();
   const updatedTeam = await Team.findOneAndUpdate(
     {
       _id: team._id,
+      "members.userId": { $ne: user._id },
       invitations: {
         $elemMatch: {
           tokenHash,
@@ -293,11 +398,21 @@ export async function joinTeamWithInvitation(
   return buildTeamContext(user, updatedTeam);
 }
 
+export async function joinTeamWithInvitationForUser(
+  userId: string,
+  inviteToken: string
+) {
+  await connectToDatabase();
+  const user = await getUserOrThrow(userId);
+  return joinTeamWithInvitation(user, inviteToken);
+}
+
 export async function createTeamInvitation(
   userId: string,
+  activeTeamId: string | undefined,
   invitedEmail?: string
 ) {
-  const context = await getUserTeamContext(userId);
+  const { context } = await getUserTeamWorkspace(userId, activeTeamId);
 
   if (context.role !== "owner") {
     throw new TeamServiceError("Only team owners can invite members.", 403);

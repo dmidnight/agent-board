@@ -27,6 +27,7 @@ export async function POST(request: Request) {
   try {
     const invitation = await createTeamInvitation(
       auth.session.userId,
+      auth.session.teamId,
       parsed.data.invitedEmail
     );
     const inviteUrl = new URL(`/login?invite=${invitation.token}`, request.url);

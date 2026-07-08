@@ -28,7 +28,11 @@ export async function GET(_request: Request, { params }: RouteContext) {
     return jsonError("Attachment not found.", 404);
   }
 
-  const board = await requireOwnedBoard(auth.session.userId, boardId);
+  const board = await requireOwnedBoard(
+    auth.session.userId,
+    boardId,
+    auth.session.teamId
+  );
   if (!board) {
     return jsonError("Board not found.", 404);
   }

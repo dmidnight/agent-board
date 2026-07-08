@@ -2,7 +2,11 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongoose";
 import { setSession } from "@/lib/session";
-import { getUserTeamContext, TeamServiceError } from "@/lib/team-service";
+import {
+  getUserTeamContext,
+  serializeSessionTeamContext,
+  TeamServiceError
+} from "@/lib/team-service";
 import { authSchema } from "@/lib/validation";
 import { User } from "@/models/User";
 
@@ -47,14 +51,7 @@ export async function POST(request: Request) {
     return loginError(error);
   }
 
-  await setSession({
-    userId: user._id.toString(),
-    email: user.email,
-    name: user.name,
-    teamId: teamContext.teamId,
-    teamName: teamContext.teamName,
-    teamRole: teamContext.role
-  });
+  await setSession(serializeSessionTeamContext(teamContext));
 
   return NextResponse.json({ ok: true });
 }

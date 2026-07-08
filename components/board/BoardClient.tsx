@@ -21,6 +21,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  Building2,
   Bot,
   Check,
   CheckCircle2,
@@ -71,6 +72,7 @@ type BoardClientProps = {
   initialBoard: BoardPayload;
   user: SessionPayload;
   team: TeamPayload;
+  teams: TeamPayload[];
 };
 
 type MovePayload = {
@@ -111,6 +113,13 @@ type InvitationResponse = {
     inviteUrl: string;
     expiresAt: string;
   };
+  error?: string;
+};
+
+type WorkspaceResponse = {
+  board?: BoardPayload;
+  team?: TeamPayload;
+  teams?: TeamPayload[];
   error?: string;
 };
 
@@ -353,9 +362,34 @@ async function readBoardResponse(response: Response) {
   return data.board;
 }
 
-export function BoardClient({ initialBoard, user, team }: BoardClientProps) {
+async function readWorkspaceResponse(response: Response) {
+  const data = (await response.json().catch(() => null)) as
+    | WorkspaceResponse
+    | null;
+
+  if (!response.ok || !data?.board || !data.team || !data.teams) {
+    throw new Error(data?.error ?? "The workspace could not be updated.");
+  }
+
+  return {
+    board: data.board,
+    team: data.team,
+    teams: data.teams
+  };
+}
+
+export function BoardClient({
+  initialBoard,
+  user,
+  team,
+  teams
+}: BoardClientProps) {
   const router = useRouter();
   const [board, setBoard] = useState(initialBoard);
+  const [activeTeam, setActiveTeam] = useState(team);
+  const [teamMemberships, setTeamMemberships] = useState<TeamPayload[]>(
+    teams.length > 0 ? teams : [team]
+  );
   const [selectedTicketId, setSelectedTicketId] = useState(
     initialBoard.tickets[0]?.id ?? ""
   );
@@ -378,6 +412,9 @@ export function BoardClient({ initialBoard, user, team }: BoardClientProps) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteUrl, setInviteUrl] = useState("");
   const [inviteExpiresAt, setInviteExpiresAt] = useState("");
+  const [newTeamName, setNewTeamName] = useState("");
+  const [joinInviteToken, setJoinInviteToken] = useState("");
+  const [teamActionError, setTeamActionError] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -480,6 +517,37 @@ export function BoardClient({ initialBoard, user, team }: BoardClientProps) {
     setEditorDraft(createTicketDraft(ticket));
     setApprovalDraft(createApprovalDraft(ticket));
     setHandoffCopyState("idle");
+  }
+
+  function applyWorkspace(workspace: {
+    board: BoardPayload;
+    team: TeamPayload;
+    teams: TeamPayload[];
+  }) {
+    const firstTicket = workspace.board.tickets[0] ?? null;
+
+    setBoard(workspace.board);
+    setActiveTeam(workspace.team);
+    setTeamMemberships(
+      workspace.teams.length > 0 ? workspace.teams : [workspace.team]
+    );
+    setSelectedTicketId(firstTicket?.id ?? "");
+    setActiveTicketId(null);
+    setEditorDraft(firstTicket ? createTicketDraft(firstTicket) : null);
+    setApprovalDraft(firstTicket ? createApprovalDraft(firstTicket) : null);
+    setAttachments([]);
+    setAttachmentsLoading(false);
+    setAttachmentError("");
+    setAttachmentInputKey((current) => current + 1);
+    setHandoffCopyState("idle");
+    setTicketDrafts({});
+    setSearchTerm("");
+    setInviteEmail("");
+    setInviteUrl("");
+    setInviteExpiresAt("");
+    setInviteError("");
+    setTeamActionError("");
+    setError("");
   }
 
   function refreshBoard(nextBoard: BoardPayload, preferredTicketId = selectedTicketId) {
@@ -886,6 +954,89 @@ export function BoardClient({ initialBoard, user, team }: BoardClientProps) {
     });
   }
 
+  function switchTeam(teamId: string) {
+    if (!teamId || teamId === activeTeam.id) {
+      return;
+    }
+
+    setError("");
+    setTeamActionError("");
+    startTransition(async () => {
+      try {
+        const response = await fetch("/api/teams/switch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teamId })
+        });
+        const workspace = await readWorkspaceResponse(response);
+        applyWorkspace(workspace);
+        router.refresh();
+      } catch (caught) {
+        setTeamActionError(
+          caught instanceof Error ? caught.message : "Team could not be switched."
+        );
+      }
+    });
+  }
+
+  function createTeam(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const teamName = newTeamName.trim();
+    if (!teamName) {
+      setTeamActionError("Team name is required.");
+      return;
+    }
+
+    setError("");
+    setTeamActionError("");
+    startTransition(async () => {
+      try {
+        const response = await fetch("/api/teams", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teamName })
+        });
+        const workspace = await readWorkspaceResponse(response);
+        applyWorkspace(workspace);
+        setNewTeamName("");
+        router.refresh();
+      } catch (caught) {
+        setTeamActionError(
+          caught instanceof Error ? caught.message : "Team could not be created."
+        );
+      }
+    });
+  }
+
+  function joinTeam(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const inviteToken = joinInviteToken.trim();
+    if (!inviteToken) {
+      setTeamActionError("Invitation token is required.");
+      return;
+    }
+
+    setError("");
+    setTeamActionError("");
+    startTransition(async () => {
+      try {
+        const response = await fetch("/api/teams/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inviteToken })
+        });
+        const workspace = await readWorkspaceResponse(response);
+        applyWorkspace(workspace);
+        setJoinInviteToken("");
+        router.refresh();
+      } catch (caught) {
+        setTeamActionError(
+          caught instanceof Error ? caught.message : "Team could not be joined."
+        );
+      }
+    });
+  }
+
   function createInvite(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -999,6 +1150,10 @@ export function BoardClient({ initialBoard, user, team }: BoardClientProps) {
         </div>
         <div className={styles.topbarActions}>
           {error ? <p className={styles.error}>{error}</p> : null}
+          <span className={styles.activeTeamPill} title={activeTeam.name}>
+            <Building2 size={15} />
+            {activeTeam.name}
+          </span>
           <span className={styles.userPill}>{user.email}</span>
           <button
             className={styles.iconButton}
@@ -1027,12 +1182,68 @@ export function BoardClient({ initialBoard, user, team }: BoardClientProps) {
               <div className={styles.teamIdentity}>
                 <UsersRound size={17} />
                 <div>
-                  <strong>{team.name}</strong>
-                  <span>{team.role}</span>
+                  <strong>{activeTeam.name}</strong>
+                  <span>{activeTeam.role}</span>
                 </div>
               </div>
 
-              {team.role === "owner" ? (
+              <label className={styles.teamSwitcher}>
+                <span>Current team</span>
+                <select
+                  value={activeTeam.id}
+                  onChange={(event) => switchTeam(event.target.value)}
+                  disabled={isPending}
+                >
+                  {teamMemberships.map((membership) => (
+                    <option key={membership.id} value={membership.id}>
+                      {membership.name} · {membership.role}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <form className={styles.teamActionForm} onSubmit={createTeam}>
+                <label>
+                  <span>New team</span>
+                  <input
+                    placeholder="Acme Platform"
+                    value={newTeamName}
+                    onChange={(event) => setNewTeamName(event.target.value)}
+                    minLength={2}
+                    maxLength={80}
+                  />
+                </label>
+                <button type="submit" disabled={isPending || !newTeamName.trim()}>
+                  <CirclePlus size={15} />
+                  Create team
+                </button>
+              </form>
+
+              <form className={styles.teamActionForm} onSubmit={joinTeam}>
+                <label>
+                  <span>Join team</span>
+                  <input
+                    placeholder="Paste invitation token"
+                    value={joinInviteToken}
+                    onChange={(event) => setJoinInviteToken(event.target.value)}
+                    minLength={16}
+                    maxLength={160}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={isPending || !joinInviteToken.trim()}
+                >
+                  <MailPlus size={15} />
+                  Join team
+                </button>
+              </form>
+
+              {teamActionError ? (
+                <p className={styles.inlineError}>{teamActionError}</p>
+              ) : null}
+
+              {activeTeam.role === "owner" ? (
                 <form className={styles.inviteForm} onSubmit={createInvite}>
                   <label>
                     <span>Invite email</span>

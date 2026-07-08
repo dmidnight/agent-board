@@ -35,6 +35,9 @@ export AGENT_BOARD_URL="http://localhost:3002"
 
 Prefer short-lived or low-privilege team accounts for agents. Do not paste
 credentials into prompts or commit them to the repo.
+If a credential belongs to multiple teams, the helper uses the account's active
+team. Switch teams in the app before handing work to an agent, and confirm the
+team name returned by `node scripts/agent-board-client.mjs board`.
 
 ## Quick Smoke Test
 

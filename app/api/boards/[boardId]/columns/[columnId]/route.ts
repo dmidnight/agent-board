@@ -25,7 +25,11 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   }
 
   const { boardId, columnId } = await params;
-  const board = await requireOwnedBoard(auth.session.userId, boardId);
+  const board = await requireOwnedBoard(
+    auth.session.userId,
+    boardId,
+    auth.session.teamId
+  );
   if (!board) {
     return jsonError("Board not found.", 404);
   }
@@ -50,7 +54,11 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
   }
 
   const { boardId, columnId } = await params;
-  const board = await requireOwnedBoard(auth.session.userId, boardId);
+  const board = await requireOwnedBoard(
+    auth.session.userId,
+    boardId,
+    auth.session.teamId
+  );
   if (!board) {
     return jsonError("Board not found.", 404);
   }

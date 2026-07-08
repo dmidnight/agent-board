@@ -31,7 +31,11 @@ export async function POST(request: Request, { params }: RouteContext) {
   }
 
   const { boardId } = await params;
-  const board = await requireOwnedBoard(auth.session.userId, boardId);
+  const board = await requireOwnedBoard(
+    auth.session.userId,
+    boardId,
+    auth.session.teamId
+  );
   if (!board) {
     return jsonError("Board not found.", 404);
   }

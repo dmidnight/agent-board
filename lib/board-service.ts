@@ -3,6 +3,7 @@ import { Board, createObjectId } from "@/models/Board";
 import { connectToDatabase } from "@/lib/mongoose";
 import {
   getUserTeamContext,
+  getUserTeamWorkspace,
   serializeTeamContext,
   type TeamContext
 } from "@/lib/team-service";
@@ -310,34 +311,46 @@ async function getOrCreateBoardForTeam(context: TeamContext) {
   return Board.create(buildDefaultBoard(toId(context.user._id), context.teamId));
 }
 
-export async function getBoardWorkspaceForUser(userId: string): Promise<{
+export async function getBoardWorkspaceForUser(
+  userId: string,
+  activeTeamId?: string
+): Promise<{
   board: any;
   team: TeamPayload;
+  teams: TeamPayload[];
 }> {
   await connectToDatabase();
 
-  const context = await getUserTeamContext(userId);
+  const { context, teams } = await getUserTeamWorkspace(userId, activeTeamId);
   const board = await getOrCreateBoardForTeam(context);
 
   return {
     board,
-    team: serializeTeamContext(context)
+    team: serializeTeamContext(context),
+    teams
   };
 }
 
-export async function getOrCreateBoardForUser(userId: string) {
-  const workspace = await getBoardWorkspaceForUser(userId);
+export async function getOrCreateBoardForUser(
+  userId: string,
+  activeTeamId?: string
+) {
+  const workspace = await getBoardWorkspaceForUser(userId, activeTeamId);
   return workspace.board;
 }
 
-export async function requireOwnedBoard(userId: string, boardId: string) {
+export async function requireOwnedBoard(
+  userId: string,
+  boardId: string,
+  activeTeamId?: string
+) {
   await connectToDatabase();
 
   if (!Types.ObjectId.isValid(boardId)) {
     return null;
   }
 
-  const context = await getUserTeamContext(userId);
+  const context = await getUserTeamContext(userId, activeTeamId);
   const board = await Board.findOne({ _id: boardId, teamId: context.team._id });
   if (board) {
     return board;

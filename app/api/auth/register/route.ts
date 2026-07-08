@@ -5,6 +5,7 @@ import { setSession } from "@/lib/session";
 import {
   createTeamForUser,
   joinTeamWithInvitation,
+  serializeSessionTeamContext,
   TeamServiceError,
   validateInvitationForEmail
 } from "@/lib/team-service";
@@ -77,14 +78,7 @@ export async function POST(request: Request) {
       ? await joinTeamWithInvitation(user, inviteToken)
       : await createTeamForUser(user, teamName);
 
-    await setSession({
-      userId: user._id.toString(),
-      email: user.email,
-      name: user.name,
-      teamId: teamContext.teamId,
-      teamName: teamContext.teamName,
-      teamRole: teamContext.role
-    });
+    await setSession(serializeSessionTeamContext(teamContext));
   } catch (error) {
     await User.deleteOne({ _id: user._id });
     return registrationError(error);

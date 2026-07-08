@@ -10,8 +10,11 @@ export async function GET() {
   }
 
   try {
-    const { board, team } = await getBoardWorkspaceForUser(auth.session.userId);
-    return NextResponse.json({ board: serializeBoard(board), team });
+    const { board, team, teams } = await getBoardWorkspaceForUser(
+      auth.session.userId,
+      auth.session.teamId
+    );
+    return NextResponse.json({ board: serializeBoard(board), team, teams });
   } catch (error) {
     if (error instanceof TeamServiceError) {
       return jsonError(error.message, error.status);

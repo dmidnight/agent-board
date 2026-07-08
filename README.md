@@ -7,9 +7,9 @@ A lightweight Trello-style kanban app built with Next.js, MongoDB, and Mongoose.
 ## Features
 
 - Email/password registration, sign-in, and sign-out.
-- Team workspaces with required unique team names.
+- Multi-team workspaces with required unique team names and an active team switcher.
 - Owner-created invitation tokens for adding members to an existing team.
-- Team-scoped seeded board and ticket data.
+- Team-scoped seeded board and ticket data for every team.
 - Add, rename, and delete empty columns.
 - Add, edit, move, search, and delete tickets.
 - Upload and download ticket attachments through private object storage.
@@ -43,20 +43,24 @@ A lightweight Trello-style kanban app built with Next.js, MongoDB, and Mongoose.
 
 ## Multi-Tenant Security Model
 
-The MVP uses one team per account. A team is the tenant boundary for board,
-ticket, approval, and future attachment data.
+A team is the tenant boundary for board, ticket, approval, and attachment data.
+Users can belong to multiple teams, but only one team is active in a session at a
+time.
 
 - Team names are normalized and stored with a unique lowercase key.
-- Users store their current `teamId`, but protected APIs reload and verify team
-  membership from MongoDB before reading or changing board data.
-- Board lookups are scoped by `teamId`; a valid board ID alone is not enough to
-  access confidential ticket data.
+- Team membership is stored on the team document. Users store an active `teamId`
+  for convenience, but protected APIs reload and verify membership from MongoDB
+  before reading or changing board data.
+- Board lookups are scoped by the active `teamId`; a valid board ID alone is not
+  enough to access confidential ticket data.
+- Users can create additional teams, join another team with an invitation token,
+  and switch active teams from the app sidebar.
 - Invitation tokens are random, expire after seven days, and are stored only as
   SHA-256 hashes in MongoDB. The raw invitation URL is shown once when an owner
   creates it.
 - Invitations can be restricted to a specific email address. Blank invite email
   creates a bearer invite for the team, so share those links carefully.
-- Only team owners can create invitations in this MVP.
+- Only team owners can create invitations for the active team.
 - Keep `MONGODB_URI` and `SESSION_SECRET` in Kubernetes Secrets. Do not log
   ticket bodies, approval prompts, attachment names, or invitation tokens.
 
@@ -74,7 +78,8 @@ Both packages include a dependency-free Node client at
 `AGENT_BOARD_EMAIL`/`AGENT_BOARD_PASSWORD` or `AGENT_BOARD_COOKIE`.
 
 The app exposes `GET /api/boards/current` as the agent-friendly discovery
-endpoint for the authenticated user's team board.
+endpoint for the authenticated user's active team board. It also returns the
+user's team memberships so clients can show which team is active.
 
 Execution approvals should use portable scopes such as `Current repository
 checkout` plus repo-relative file globs. Do not put developer-specific absolute

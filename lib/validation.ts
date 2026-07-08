@@ -26,6 +26,18 @@ export const createInvitationSchema = z.object({
   )
 });
 
+export const createTeamSchema = z.object({
+  teamName: teamNameSchema
+});
+
+export const switchTeamSchema = z.object({
+  teamId: z.string().trim().min(1)
+});
+
+export const joinTeamSchema = z.object({
+  inviteToken: inviteTokenSchema
+});
+
 export const createColumnSchema = z.object({
   title: z.string().trim().min(1).max(60)
 });

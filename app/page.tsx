@@ -10,9 +10,17 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  const { board, team } = await getBoardWorkspaceForUser(session.userId);
+  const { board, team, teams } = await getBoardWorkspaceForUser(
+    session.userId,
+    session.teamId
+  );
 
   return (
-    <BoardClient initialBoard={serializeBoard(board)} user={session} team={team} />
+    <BoardClient
+      initialBoard={serializeBoard(board)}
+      user={session}
+      team={team}
+      teams={teams}
+    />
   );
 }
