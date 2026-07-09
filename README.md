@@ -2,19 +2,20 @@
 
 [![CI](https://github.com/dmidnight/agent-board/actions/workflows/ci.yml/badge.svg)](https://github.com/dmidnight/agent-board/actions/workflows/ci.yml)
 
-A lightweight Trello-style kanban app built with Next.js, MongoDB, and Mongoose. It starts with email/password auth and a board model shaped for agentic workflows: stable ticket IDs, objectives, acceptance criteria, agent notes, and automation metadata.
+A lightweight Trello-style kanban app built with Next.js, MongoDB, and Mongoose. Humans write ordinary tickets; agents use the same board through a stable API and submit their own execution plans for approval.
 
 ## Features
 
 - Email/password registration, sign-in, and sign-out.
 - Multi-team workspaces with required unique team names and an active team switcher.
-- Owner-created invitation tokens for adding members to an existing team.
-- Team-scoped seeded board and ticket data for every team.
+- Email invitations through SendGrid, with copyable invitation links as an explicit fallback.
+- Empty team boards with simple To do, In progress, and Done columns.
 - Add, rename, and delete empty columns.
-- Add, edit, move, search, and delete tickets.
+- Add, edit, move, search, and delete tickets with plain-language priorities and checklists.
+- Team-owned GitHub repository metadata that can be associated with tickets.
 - Upload and download ticket attachments through private object storage.
 - Drag/drop ticket movement plus an inspector column selector for deterministic moves.
-- Agent-oriented ticket fields: API ID, objective, acceptance criteria, agent notes, priority, owner/agent, labels, and automation hooks.
+- Agent execution requests with human approval, scoped commands, files, network access, and secret access.
 - Authenticated JSON API routes for board reads and mutations.
 - Portable agent skill/plugin packages for Codex and Claude in `integrations/`.
 
@@ -83,11 +84,13 @@ time.
 - Users can create additional teams, join another team with an invitation token,
   and switch active teams from the app sidebar.
 - Invitation tokens are random, expire after seven days, and are stored only as
-  SHA-256 hashes in MongoDB. The raw invitation URL is shown once when an owner
-  creates it.
+  SHA-256 hashes in MongoDB. The invitation URL is available to copy when an
+  owner creates it.
 - Invitations can be restricted to a specific email address. Blank invite email
   creates a bearer invite for the team, so share those links carefully.
 - Only team owners can create invitations for the active team.
+- Only team owners can add or remove repositories. Removing a repository clears
+  its association from the team's tickets.
 - Keep `MONGODB_URI` and `SESSION_SECRET` in Kubernetes Secrets. Do not log
   ticket bodies, approval prompts, attachment names, or invitation tokens.
 
@@ -108,10 +111,40 @@ The app exposes `GET /api/boards/current` as the agent-friendly discovery
 endpoint for the authenticated user's active team board. It also returns the
 user's team memberships so clients can show which team is active.
 
-Execution approvals should use portable scopes such as `Current repository
-checkout` plus repo-relative file globs. Do not put developer-specific absolute
-filesystem paths in tickets; new approval requests with absolute local paths are
-rejected.
+Tickets do not contain local paths, file globs, or commands. A ticket can select
+one of the active team's GitHub repositories. The agent resolves that repository
+against its own workspace and submits the commands, file scope, network access,
+and secret access it proposes to use. A human approves or rejects that request.
+New approval requests with developer-specific absolute paths are rejected.
+
+## Team Invitations
+
+Set `APP_BASE_URL` in deployed environments so invitation links use the public
+HTTPS hostname instead of an internal container address:
+
+```bash
+APP_BASE_URL=https://board.example.com
+```
+
+To send invitations with SendGrid, also configure:
+
+```bash
+SENDGRID_API_KEY=SG...
+INVITATION_FROM_EMAIL=invites@example.com
+INVITATION_FROM_NAME=Agent Board
+```
+
+The API key only needs SendGrid's `mail.send` permission. The from address must
+be a verified Sender Identity; domain authentication is recommended for
+production. When both `SENDGRID_API_KEY` and `INVITATION_FROM_EMAIL` are set, the
+UI says **Send invitation** and reports success only after SendGrid accepts the
+message. Without them, the UI says **Create invitation link** and never implies
+that email was sent.
+
+SendGrid references:
+
+- Mail Send API: https://www.twilio.com/docs/sendgrid/api-reference/mail-send
+- Sender Identity: https://www.twilio.com/docs/sendgrid/for-developers/sending-email/sender-identity
 
 ## Scripts
 
@@ -191,6 +224,8 @@ Optional:
 
 - `SESSION_COOKIE_SECURE`: set to `false` only when testing the production image over plain local HTTP. Defaults to secure cookies in production.
 - `NEXT_PUBLIC_APP_NAME`: display/app metadata value. Defaults are safe if omitted.
+- `APP_BASE_URL`: public origin used for invitation links, such as `https://board.example.com`.
+- `SENDGRID_API_KEY`, `INVITATION_FROM_EMAIL`, and `INVITATION_FROM_NAME`: optional invitation email delivery settings.
 
 Kubernetes deployment notes:
 
@@ -206,7 +241,11 @@ Kubernetes deployment notes:
   ```bash
   kubectl create secret generic agent-board-secrets \
     --from-literal=MONGODB_URI="mongodb://user:password@mongo.example:27017/agentboard?authSource=admin" \
-    --from-literal=SESSION_SECRET="replace-with-a-long-random-secret"
+    --from-literal=SESSION_SECRET="replace-with-a-long-random-secret" \
+    --from-literal=APP_BASE_URL="https://board.example.com" \
+    --from-literal=SENDGRID_API_KEY="SG..." \
+    --from-literal=INVITATION_FROM_EMAIL="invites@example.com" \
+    --from-literal=INVITATION_FROM_NAME="Agent Board"
 
   kubectl apply -f k8s/deployment.yaml
   ```

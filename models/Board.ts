@@ -71,6 +71,7 @@ const TicketSchema = new Schema(
     publicId: { type: String, required: true, trim: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
+    repositoryId: { type: Schema.Types.ObjectId, default: null },
     columnId: { type: Schema.Types.ObjectId, required: true },
     order: { type: Number, required: true },
     priority: {

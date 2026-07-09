@@ -17,8 +17,8 @@ export default async function LoginPage() {
           <p className={styles.brand}>Agent Board</p>
           <h1>Plan work for humans and agents in the same flow.</h1>
           <p>
-            Start with a team workspace, stable API-friendly ticket IDs,
-            acceptance criteria, and agent notes. Email and password only for now.
+            Start with a clean team board, connect the repositories your team
+            works in, and write tickets that read naturally to anyone.
           </p>
         </div>
         <LoginForm />

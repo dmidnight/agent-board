@@ -15,10 +15,17 @@ export type SecretAccess = "none" | "allowlisted";
 
 export type TeamRole = "owner" | "member";
 
+export type TeamRepository = {
+  id: string;
+  name: string;
+  url: string;
+};
+
 export type TeamPayload = {
   id: string;
   name: string;
   role: TeamRole;
+  repositories: TeamRepository[];
 };
 
 export type BoardColumn = {
@@ -66,6 +73,7 @@ export type Ticket = {
   apiId: string;
   title: string;
   description: string;
+  repositoryId: string | null;
   columnId: string;
   order: number;
   priority: Priority;

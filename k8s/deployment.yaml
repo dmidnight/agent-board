@@ -34,6 +34,30 @@ spec:
                   key: SESSION_SECRET
             - name: NEXT_PUBLIC_APP_NAME
               value: Agent Board
+            - name: APP_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: APP_BASE_URL
+                  optional: true
+            - name: SENDGRID_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: SENDGRID_API_KEY
+                  optional: true
+            - name: INVITATION_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: INVITATION_FROM_EMAIL
+                  optional: true
+            - name: INVITATION_FROM_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: agent-board-secrets
+                  key: INVITATION_FROM_NAME
+                  optional: true
             - name: ATTACHMENT_STORAGE_PROVIDER
               valueFrom:
                 secretKeyRef:

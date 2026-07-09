@@ -39,7 +39,14 @@ Returns:
 
 ```json
 {
-  "team": { "id": "...", "name": "Acme", "role": "owner" },
+  "team": {
+    "id": "...",
+    "name": "Acme",
+    "role": "owner",
+    "repositories": [
+      { "id": "...", "name": "acme/platform", "url": "https://github.com/acme/platform" }
+    ]
+  },
   "teams": [
     { "id": "...", "name": "Acme", "role": "owner" },
     { "id": "...", "name": "Research", "role": "member" }
@@ -48,7 +55,7 @@ Returns:
     "id": "...",
     "title": "Agent Board",
     "columns": [{ "id": "...", "title": "Backlog", "order": 0 }],
-    "tickets": [{ "id": "...", "publicId": "AB-101", "apiId": "ticket.ab-101" }]
+    "tickets": [{ "id": "...", "publicId": "AB-101", "apiId": "ticket.ab-101", "repositoryId": "..." }]
   }
 }
 ```
@@ -68,7 +75,7 @@ Returns `{ "board": BoardPayload }` if the board belongs to the user's team. Ret
 Body:
 
 ```json
-{ "title": "Draft implementation plan", "columnId": "...", "priority": "P2" }
+{ "title": "Draft implementation plan", "columnId": "...", "repositoryId": "..." }
 ```
 
 ### Update Ticket
@@ -79,12 +86,22 @@ Allowed fields:
 
 - `title`
 - `description`
-- `priority`
-- `agent`
-- `objective`
-- `agentNotes`
-- `acceptanceCriteria`
-- `automationHooks`
+- `repositoryId` (a repository ID from the active team, or `null`)
+- `priority` (`P0` urgent, `P1` high, `P2` normal, or `P3` low)
+- `agent` (the assignee display value)
+- `acceptanceCriteria` (the ticket checklist)
+
+Legacy clients can still update `objective`, `agentNotes`, and
+`automationHooks`, but the human ticket editor intentionally omits them.
+
+### Team Repositories
+
+Team owners can register GitHub repositories as trusted team metadata:
+
+- `POST /api/teams/repositories` with `{ "url": "https://github.com/acme/platform" }`
+- `DELETE /api/teams/repositories/:repositoryId`
+
+Repository URLs tell an agent what checkout a ticket concerns. They do not grant GitHub access and do not authorize cloning or commands; those actions still belong in an execution approval request.
 
 ### Move Ticket
 
@@ -121,11 +138,10 @@ approval nonce to match. Download through:
 
 `POST /api/boards/:boardId/tickets/:ticketId/approval`
 
-`allowedWorkspace` is a portable execution scope, not a developer-specific
-absolute path. Prefer `Current repository checkout` with repo-relative file
-globs. The operator or local agent resolves that scope to its own checkout at
-pickup time. The API rejects new Unix, macOS, or Windows absolute paths in this
-field.
+The agent creates this request after resolving the ticket repository and its own
+workspace. Ticket authors do not supply commands, local paths, or file globs.
+`allowedWorkspace` remains portable and the API rejects Unix, macOS, and Windows
+absolute paths.
 
 Request approval:
 
@@ -133,7 +149,7 @@ Request approval:
 {
   "action": "request",
   "executionMode": "plan_only",
-  "allowedWorkspace": "Current repository checkout",
+  "allowedWorkspace": "Repository acme/platform",
   "allowedFileGlobs": ["app/**", "lib/**"],
   "allowedCommands": ["npm run typecheck", "npm run lint"],
   "networkAccess": "none",

@@ -1,9 +1,11 @@
 import crypto from "crypto";
 import { Types } from "mongoose";
+import { normalizeGitHubRepositoryUrl } from "@/lib/github";
 import { connectToDatabase } from "@/lib/mongoose";
+import { Board } from "@/models/Board";
 import { Team, type TeamRole } from "@/models/Team";
 import { User } from "@/models/User";
-import type { TeamPayload } from "@/types/board";
+import type { TeamPayload, TeamRepository } from "@/types/board";
 
 const INVITATION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 
@@ -29,11 +31,18 @@ type UserLike = {
 type TeamLike = {
   _id: Types.ObjectId;
   name: string;
+  repositories: Array<{
+    _id: Types.ObjectId | string;
+    name: string;
+    url: string;
+    urlKey: string;
+  }>;
   members: Array<{
     userId: Types.ObjectId | string;
     role: TeamRole;
     joinedAt?: Date;
   }>;
+  save: () => Promise<unknown>;
 };
 
 export type TeamContext = {
@@ -96,8 +105,19 @@ function serializeTeamMembership(userId: string, team: TeamLike): TeamPayload {
   return {
     id: toId(team._id),
     name: team.name,
-    role: member.role
+    role: member.role,
+    repositories: serializeTeamRepositories(team.repositories)
   };
+}
+
+function serializeTeamRepositories(
+  repositories: TeamLike["repositories"] = []
+): TeamRepository[] {
+  return repositories.map((repository) => ({
+    id: toId(repository._id),
+    name: repository.name,
+    url: repository.url
+  }));
 }
 
 async function getUserOrThrow(userId: string) {
@@ -150,7 +170,8 @@ export function serializeTeamContext(context: TeamContext): TeamPayload {
   return {
     id: context.teamId,
     name: context.teamName,
-    role: context.role
+    role: context.role,
+    repositories: serializeTeamRepositories(context.team.repositories)
   };
 }
 
@@ -452,4 +473,101 @@ export async function createTeamInvitation(
     team: serializeTeamContext(context),
     invitedEmail: invitedEmail ?? ""
   };
+}
+
+export async function revokeTeamInvitation(
+  teamId: string,
+  inviteToken: string
+) {
+  await connectToDatabase();
+  await Team.updateOne(
+    { _id: teamId },
+    { $pull: { invitations: { tokenHash: hashInviteToken(inviteToken) } } }
+  );
+}
+
+export async function addTeamRepository(
+  userId: string,
+  activeTeamId: string | undefined,
+  repositoryUrl: string
+) {
+  const { context } = await getUserTeamWorkspace(userId, activeTeamId);
+  if (context.role !== "owner") {
+    throw new TeamServiceError("Only team owners can manage repositories.", 403);
+  }
+
+  let repository: ReturnType<typeof normalizeGitHubRepositoryUrl>;
+  try {
+    repository = normalizeGitHubRepositoryUrl(repositoryUrl);
+  } catch (error) {
+    throw new TeamServiceError(
+      error instanceof Error
+        ? error.message
+        : "Enter a valid GitHub repository URL."
+    );
+  }
+
+  if (
+    context.team.repositories.some(
+      (candidate) => candidate.urlKey === repository.urlKey
+    )
+  ) {
+    throw new TeamServiceError("That repository is already on this team.", 409);
+  }
+
+  context.team.repositories.push({
+    _id: new Types.ObjectId(),
+    ...repository
+  });
+  await context.team.save();
+
+  return getUserTeamWorkspace(userId, context.teamId);
+}
+
+export async function removeTeamRepository(
+  userId: string,
+  activeTeamId: string | undefined,
+  repositoryId: string
+) {
+  if (!Types.ObjectId.isValid(repositoryId)) {
+    throw new TeamServiceError("Repository not found.", 404);
+  }
+
+  const { context } = await getUserTeamWorkspace(userId, activeTeamId);
+  if (context.role !== "owner") {
+    throw new TeamServiceError("Only team owners can manage repositories.", 403);
+  }
+
+  const repositoryIndex = context.team.repositories.findIndex(
+    (repository) => toId(repository._id) === repositoryId
+  );
+  if (repositoryIndex < 0) {
+    throw new TeamServiceError("Repository not found.", 404);
+  }
+
+  context.team.repositories.splice(repositoryIndex, 1);
+  await context.team.save();
+
+  await Board.updateOne(
+    { teamId: context.team._id },
+    { $set: { "tickets.$[ticket].repositoryId": null } },
+    { arrayFilters: [{ "ticket.repositoryId": new Types.ObjectId(repositoryId) }] }
+  );
+
+  return getUserTeamWorkspace(userId, context.teamId);
+}
+
+export async function teamHasRepository(
+  userId: string,
+  activeTeamId: string | undefined,
+  repositoryId: string
+) {
+  if (!Types.ObjectId.isValid(repositoryId)) {
+    return false;
+  }
+
+  const context = await getUserTeamContext(userId, activeTeamId);
+  return context.team.repositories.some(
+    (repository) => toId(repository._id) === repositoryId
+  );
 }

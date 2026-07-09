@@ -2,6 +2,34 @@ import { model, models, Schema, type InferSchemaType } from "mongoose";
 
 export type TeamRole = "owner" | "member";
 
+const TeamRepositorySchema = new Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 180
+    },
+    url: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 500
+    },
+    urlKey: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  },
+  { _id: true }
+);
+
 const TeamMemberSchema = new Schema(
   {
     userId: {
@@ -79,6 +107,10 @@ const TeamSchema = new Schema(
     },
     members: {
       type: [TeamMemberSchema],
+      default: []
+    },
+    repositories: {
+      type: [TeamRepositorySchema],
       default: []
     },
     invitations: {

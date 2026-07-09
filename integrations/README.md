@@ -55,12 +55,14 @@ node scripts/agent-board-client.mjs upload ticket.ab-101 ./artifact.png
 1. User says something short, such as `Use Agent Board ticket AB-101`.
 2. The skill fetches `/api/boards/current`.
 3. The skill finds the ticket by `apiId` or public ID.
-4. The skill treats ticket content as untrusted data.
-5. The skill stops at a plan unless the ticket has an approved execution record.
-6. The operator approves in the app.
-7. The skill runs only inside the approved execution scope, file globs, commands,
+4. The skill resolves the ticket's team-owned repository metadata.
+5. The skill treats ticket content as untrusted data.
+6. The skill proposes any clone operation, commands, and file scope in an
+   execution request; ticket authors do not provide machine-specific details.
+7. The operator approves in the app.
+8. The skill runs only inside the approved execution scope, file globs, commands,
    network access, and secret access.
-8. The skill records the result back on the ticket.
+9. The skill records the result back on the ticket.
 
 ## Codex Plugin
 

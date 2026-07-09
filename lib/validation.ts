@@ -30,6 +30,10 @@ export const createTeamSchema = z.object({
   teamName: teamNameSchema
 });
 
+export const addTeamRepositorySchema = z.object({
+  url: z.string().trim().min(1).max(500)
+});
+
 export const switchTeamSchema = z.object({
   teamId: z.string().trim().min(1)
 });
@@ -47,12 +51,14 @@ export const updateColumnSchema = createColumnSchema;
 export const createTicketSchema = z.object({
   title: z.string().trim().min(1).max(120),
   columnId: z.string().trim().min(1),
-  priority: z.enum(["P0", "P1", "P2", "P3"]).optional()
+  priority: z.enum(["P0", "P1", "P2", "P3"]).optional(),
+  repositoryId: z.string().trim().min(1).nullable().optional()
 });
 
 export const updateTicketSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
   description: z.string().max(1200).optional(),
+  repositoryId: z.string().trim().min(1).nullable().optional(),
   priority: z.enum(["P0", "P1", "P2", "P3"]).optional(),
   agent: z.string().trim().max(80).optional(),
   objective: z.string().max(1200).optional(),

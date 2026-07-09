@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireOwnedBoard, serializeBoard } from "@/lib/board-service";
 import { jsonError, requireSession } from "@/lib/http";
+import { teamHasRepository } from "@/lib/team-service";
 import { updateTicketSchema } from "@/lib/validation";
 
 type RouteContext = {
@@ -39,6 +40,17 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   );
   if (!ticket) {
     return jsonError("Ticket not found.", 404);
+  }
+
+  if (
+    parsed.data.repositoryId &&
+    !(await teamHasRepository(
+      auth.session.userId,
+      auth.session.teamId,
+      parsed.data.repositoryId
+    ))
+  ) {
+    return jsonError("Repository not found for this team.", 404);
   }
 
   Object.entries(parsed.data).forEach(([key, value]) => {
