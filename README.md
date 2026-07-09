@@ -26,11 +26,13 @@ A lightweight Trello-style kanban app built with Next.js, MongoDB, and Mongoose.
    cp .env.example .env
    ```
 
-2. Start MongoDB:
+2. Start the local backing services:
 
    ```bash
    docker compose up -d
    ```
+
+   By default this starts MongoDB and MinIO for local development.
 
 3. Install and run:
 
@@ -40,6 +42,31 @@ A lightweight Trello-style kanban app built with Next.js, MongoDB, and Mongoose.
    ```
 
 4. Open http://localhost:3000 and create an account with a team name.
+
+## Run The Published Image Locally
+
+CI publishes a public Docker image at
+https://hub.docker.com/repository/docker/dmidnight/agent-board.
+
+To run the full app plus MongoDB and MinIO locally without building from source:
+
+```bash
+docker compose --profile app up -d
+```
+
+Then open http://localhost:3002 and create an account with a team name.
+
+The `app` Compose profile pulls `dmidnight/agent-board:latest` and wires it to
+the local `mongo` and `minio` services on the Compose network. The default
+Compose command without `--profile app` still starts only the backing services
+for `npm run dev`.
+
+To pull a newer published image:
+
+```bash
+docker compose --profile app pull app
+docker compose --profile app up -d
+```
 
 ## Multi-Tenant Security Model
 
@@ -106,8 +133,15 @@ for weekly npm and GitHub Actions updates.
 
 ### Docker Hub Publishing
 
-Create a public Docker Hub repository named `agent-board`, then configure these
-GitHub Actions values in the GitHub repository settings:
+This repository publishes a public image to Docker Hub:
+
+```bash
+docker pull dmidnight/agent-board:latest
+```
+
+Forks can publish their own image by creating a public Docker Hub repository
+named `agent-board`, then configuring these GitHub Actions values in the fork's
+repository settings:
 
 - Variable `DOCKERHUB_USERNAME`: your Docker Hub namespace or username.
 - Secret `DOCKERHUB_TOKEN`: a Docker Hub access token with permission to push to
@@ -138,14 +172,14 @@ Build the image:
 docker build -t agent-board:latest .
 ```
 
-Run it locally against any MongoDB URI:
+Pull and run the public image locally against any MongoDB URI:
 
 ```bash
 docker run --rm -p 3000:3000 \
   -e MONGODB_URI="mongodb://user:password@mongo.example:27017/agentboard?authSource=admin" \
   -e SESSION_SECRET="replace-with-a-long-random-secret" \
   -e SESSION_COOKIE_SECURE="false" \
-  agent-board:latest
+  dmidnight/agent-board:latest
 ```
 
 Required runtime environment variables:
@@ -164,7 +198,10 @@ Kubernetes deployment notes:
 - Use `/api/health` for liveness/readiness probes.
 - Store `MONGODB_URI` and `SESSION_SECRET` in Kubernetes Secrets, not in the image.
 - Leave `SESSION_COOKIE_SECURE` unset when the app is served through HTTPS ingress.
-- Update the image in `k8s/deployment.yaml` to your registry tag, then create the secret and apply the manifest:
+- The default `k8s/deployment.yaml` uses `dmidnight/agent-board:latest`. Pin a
+  `sha-<git-sha>` or semver tag for production rollouts when you want immutable
+  deploys.
+- Create the secret and apply the manifest:
 
   ```bash
   kubectl create secret generic agent-board-secrets \
@@ -173,6 +210,9 @@ Kubernetes deployment notes:
 
   kubectl apply -f k8s/deployment.yaml
   ```
+
+  Add the attachment storage keys from [Ticket Attachments Storage](#ticket-attachments-storage)
+  to the same secret when uploads should work in the cluster.
 
 ## Ticket Attachments Storage
 
@@ -229,6 +269,10 @@ ATTACHMENT_FORCE_PATH_STYLE=true
 ATTACHMENT_ACCESS_KEY_ID=agentboard
 ATTACHMENT_SECRET_ACCESS_KEY=agentboard-secret
 ```
+
+When running the published app container through `docker compose --profile app`,
+Compose overrides the app's attachment endpoint to `http://minio:9000`, which is
+the MinIO service name inside the Compose network.
 
 ### AWS S3
 

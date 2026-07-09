@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
         - name: web
-          image: agent-board:latest
-          imagePullPolicy: IfNotPresent
+          image: dmidnight/agent-board:latest
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 3000

@@ -1,4 +1,31 @@
 services:
+  app:
+    image: dmidnight/agent-board:latest
+    container_name: agent-board-app
+    restart: unless-stopped
+    profiles:
+      - app
+    depends_on:
+      - mongo
+      - minio
+      - minio-init
+    ports:
+      - "3002:3000"
+    environment:
+      MONGODB_URI: mongodb://agentboard:agentboard@mongo:27017/agentboard?authSource=admin
+      SESSION_SECRET: ${SESSION_SECRET:-development-only-compose-session-secret-change-me}
+      SESSION_COOKIE_SECURE: "false"
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Agent Board}
+      ATTACHMENT_STORAGE_PROVIDER: s3
+      ATTACHMENT_BUCKET: agent-board-attachments
+      ATTACHMENT_BASE_PREFIX: attachments
+      ATTACHMENT_REGION: us-east-1
+      ATTACHMENT_ENDPOINT: http://minio:9000
+      ATTACHMENT_FORCE_PATH_STYLE: "true"
+      ATTACHMENT_ACCESS_KEY_ID: agentboard
+      ATTACHMENT_SECRET_ACCESS_KEY: agentboard-secret
+      ATTACHMENT_MAX_BYTES: ${ATTACHMENT_MAX_BYTES:-10485760}
+
   mongo:
     image: mongo:7
     container_name: agent-board-mongo
