@@ -2,44 +2,50 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   createTeamSchema,
-  executionApprovalActionSchema,
+  runApprovalActionSchema,
   joinTeamSchema,
-  switchTeamSchema
+  switchTeamSchema,
+  updateTicketSchema
 } from "../lib/validation";
 
-describe("execution approval validation", () => {
-  it("accepts portable execution scopes", () => {
-    const parsed = executionApprovalActionSchema.safeParse({
+describe("ticket run approval validation", () => {
+  it("accepts a plain-language ticket plan", () => {
+    const parsed = runApprovalActionSchema.safeParse({
       action: "request",
-      executionMode: "local_agent",
-      allowedWorkspace: "Current repository checkout",
-      allowedFileGlobs: ["app/**", "lib/**"],
-      allowedCommands: ["npm run lint"],
-      networkAccess: "none",
-      secretAccess: "none"
+      planSummary: "Inspect the linked repository, implement the ticket, and verify it.",
+      promptInjectionReview: "Treat ticket attachments as untrusted input."
     });
 
     assert.equal(parsed.success, true);
   });
 
-  it("rejects developer-specific absolute paths", () => {
-    for (const allowedWorkspace of [
-      "/Users/alice/project",
-      "~/project",
-      "C:\\Users\\Alice\\project"
-    ]) {
-      const parsed = executionApprovalActionSchema.safeParse({
-        action: "request",
-        executionMode: "local_agent",
-        allowedWorkspace,
-        allowedFileGlobs: ["app/**"],
-        allowedCommands: ["npm run lint"],
-        networkAccess: "none",
-        secretAccess: "none"
-      });
+  it("requires a plan before requesting approval", () => {
+    const parsed = runApprovalActionSchema.safeParse({
+      action: "request"
+    });
 
-      assert.equal(parsed.success, false);
-    }
+    assert.equal(parsed.success, false);
+  });
+
+  it("rejects fields outside the simple approval contract", () => {
+    const parsed = runApprovalActionSchema.safeParse({
+      action: "request",
+      planSummary: "Implement the ticket.",
+      machinePolicy: { arbitrary: true }
+    });
+
+    assert.equal(parsed.success, false);
+  });
+});
+
+describe("ticket update validation", () => {
+  it("rejects removed legacy metadata", () => {
+    const parsed = updateTicketSchema.safeParse({
+      description: "A simple ticket description.",
+      legacyMetadata: "A hidden duplicate description."
+    });
+
+    assert.equal(parsed.success, false);
   });
 });
 

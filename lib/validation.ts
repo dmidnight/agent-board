@@ -30,6 +30,10 @@ export const createTeamSchema = z.object({
   teamName: teamNameSchema
 });
 
+export const addTeamRepositorySchema = z.object({
+  url: z.string().trim().min(1).max(500)
+});
+
 export const switchTeamSchema = z.object({
   teamId: z.string().trim().min(1)
 });
@@ -47,16 +51,16 @@ export const updateColumnSchema = createColumnSchema;
 export const createTicketSchema = z.object({
   title: z.string().trim().min(1).max(120),
   columnId: z.string().trim().min(1),
-  priority: z.enum(["P0", "P1", "P2", "P3"]).optional()
+  priority: z.enum(["P0", "P1", "P2", "P3"]).optional(),
+  repositoryId: z.string().trim().min(1).nullable().optional()
 });
 
 export const updateTicketSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
   description: z.string().max(1200).optional(),
+  repositoryId: z.string().trim().min(1).nullable().optional(),
   priority: z.enum(["P0", "P1", "P2", "P3"]).optional(),
   agent: z.string().trim().max(80).optional(),
-  objective: z.string().max(1200).optional(),
-  agentNotes: z.string().max(1800).optional(),
   acceptanceCriteria: z
     .array(
       z.object({
@@ -65,17 +69,8 @@ export const updateTicketSchema = z.object({
       })
     )
     .max(12)
-    .optional(),
-  automationHooks: z
-    .array(
-      z.object({
-        name: z.string().trim().min(1).max(80),
-        enabled: z.boolean()
-      })
-    )
-    .max(8)
     .optional()
-});
+}).strict();
 
 export const moveTicketSchema = z.object({
   columnId: z.string().trim().min(1),
@@ -83,46 +78,24 @@ export const moveTicketSchema = z.object({
   afterTicketId: z.string().trim().min(1).nullable().optional()
 });
 
-const stringListSchema = z
-  .array(z.string().trim().min(1).max(180))
-  .max(12)
-  .default([]);
-
-const executionScopeSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(240)
-  .refine((value) => !/^(\/|~\/|[A-Za-z]:[\\/])/.test(value), {
-    message: "Use a portable execution scope, not a local absolute path."
-  });
-
-export const executionApprovalActionSchema = z.discriminatedUnion("action", [
+export const runApprovalActionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("request"),
-    executionMode: z
-      .enum(["plan_only", "local_agent", "ci_runner"])
-      .default("plan_only"),
-    allowedWorkspace: executionScopeSchema,
-    allowedFileGlobs: stringListSchema,
-    allowedCommands: stringListSchema,
-    networkAccess: z.enum(["none", "allowlisted", "full"]).default("none"),
-    secretAccess: z.enum(["none", "allowlisted"]).default("none"),
-    planSummary: z.string().trim().max(1200).optional(),
+    planSummary: z.string().trim().min(1).max(1200),
     promptInjectionReview: z.string().trim().max(1200).optional()
-  }),
+  }).strict(),
   z.object({
     action: z.literal("approve")
-  }),
+  }).strict(),
   z.object({
     action: z.literal("reject"),
     rejectionReason: z.string().trim().min(1).max(600)
-  }),
+  }).strict(),
   z.object({
     action: z.literal("expire")
-  }),
+  }).strict(),
   z.object({
     action: z.literal("record_result"),
     resultSummary: z.string().trim().min(1).max(1600)
-  })
+  }).strict()
 ]);

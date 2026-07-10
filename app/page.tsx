@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { BoardClient } from "@/components/board/BoardClient";
 import { getBoardWorkspaceForUser, serializeBoard } from "@/lib/board-service";
+import { isInvitationEmailConfigured } from "@/lib/invitation-email";
 import { getSession } from "@/lib/session";
 
 export default async function HomePage() {
@@ -21,6 +22,7 @@ export default async function HomePage() {
       user={session}
       team={team}
       teams={teams}
+      invitationEmailEnabled={isInvitationEmailConfigured()}
     />
   );
 }

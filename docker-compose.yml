@@ -16,6 +16,10 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-development-only-compose-session-secret-change-me}
       SESSION_COOKIE_SECURE: "false"
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Agent Board}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3002}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      INVITATION_FROM_EMAIL: ${INVITATION_FROM_EMAIL:-}
+      INVITATION_FROM_NAME: ${INVITATION_FROM_NAME:-Agent Board}
       ATTACHMENT_STORAGE_PROVIDER: s3
       ATTACHMENT_BUCKET: agent-board-attachments
       ATTACHMENT_BASE_PREFIX: attachments
