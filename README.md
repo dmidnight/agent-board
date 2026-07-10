@@ -141,6 +141,19 @@ UI says **Send invitation** and reports success only after SendGrid accepts the
 message. Without them, the UI says **Create invitation link** and never implies
 that email was sent.
 
+Invitation configuration, network, and SendGrid rejection failures are written
+to stderr as structured JSON under the `invitation_email_delivery_failed`
+event. In Kubernetes, inspect all app pods with:
+
+```bash
+kubectl logs -n default -l app.kubernetes.io/name=agent-board \
+  --all-containers=true --prefix --since=15m
+```
+
+The log includes the provider status, response body, request ID, configured
+sender, and recipient domain. API keys, recipient addresses, and invitation URLs
+are redacted.
+
 SendGrid references:
 
 - Mail Send API: https://www.twilio.com/docs/sendgrid/api-reference/mail-send
