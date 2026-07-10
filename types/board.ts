@@ -7,12 +7,6 @@ export type ApprovalStatus =
   | "rejected"
   | "expired";
 
-export type ExecutionMode = "plan_only" | "local_agent" | "ci_runner";
-
-export type NetworkAccess = "none" | "allowlisted" | "full";
-
-export type SecretAccess = "none" | "allowlisted";
-
 export type TeamRole = "owner" | "member";
 
 export type TeamRepository = {
@@ -32,8 +26,6 @@ export type BoardColumn = {
   id: string;
   title: string;
   order: number;
-  agentStage: string;
-  wipLimit: number | null;
 };
 
 export type AcceptanceCriterion = {
@@ -41,14 +33,8 @@ export type AcceptanceCriterion = {
   done: boolean;
 };
 
-export type AutomationHook = {
-  name: string;
-  enabled: boolean;
-};
-
-export type ExecutionApproval = {
+export type TicketRunApproval = {
   status: ApprovalStatus;
-  executionMode: ExecutionMode;
   requestedBy: string;
   requestedAt: string | null;
   approvedBy: string;
@@ -56,11 +42,6 @@ export type ExecutionApproval = {
   rejectedBy: string;
   rejectedAt: string | null;
   rejectionReason: string;
-  allowedWorkspace: string;
-  allowedFileGlobs: string[];
-  allowedCommands: string[];
-  networkAccess: NetworkAccess;
-  secretAccess: SecretAccess;
   approvalNonce: string;
   planSummary: string;
   promptInjectionReview: string;
@@ -78,13 +59,9 @@ export type Ticket = {
   order: number;
   priority: Priority;
   agent: string;
-  objective: string;
   acceptanceCriteria: AcceptanceCriterion[];
-  agentNotes: string;
-  automationHooks: AutomationHook[];
-  executionApproval: ExecutionApproval;
+  runApproval: TicketRunApproval;
   attachmentsCount: number;
-  labels: string[];
   updatedAt: string;
 };
 

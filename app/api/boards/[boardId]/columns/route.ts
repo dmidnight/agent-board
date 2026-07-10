@@ -32,9 +32,7 @@ export async function POST(request: Request, { params }: RouteContext) {
 
   board.columns.push({
     title: parsed.data.title,
-    order: board.columns.length,
-    agentStage: "custom",
-    wipLimit: null
+    order: board.columns.length
   });
 
   await board.save();

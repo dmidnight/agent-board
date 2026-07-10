@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/dmidnight/agent-board/actions/workflows/ci.yml/badge.svg)](https://github.com/dmidnight/agent-board/actions/workflows/ci.yml)
 
-A lightweight Trello-style kanban app built with Next.js, MongoDB, and Mongoose. Humans write ordinary tickets; agents use the same board through a stable API and submit their own execution plans for approval.
+A lightweight Trello-style kanban app built with Next.js, MongoDB, and Mongoose. Humans write ordinary tickets; agents use the same board through a stable API and submit a plain-language plan for approval before starting work.
 
 ## Features
 
@@ -15,7 +15,7 @@ A lightweight Trello-style kanban app built with Next.js, MongoDB, and Mongoose.
 - Team-owned GitHub repository metadata that can be associated with tickets.
 - Upload and download ticket attachments through private object storage.
 - Drag/drop ticket movement plus an inspector column selector for deterministic moves.
-- Agent execution requests with human approval, scoped commands, files, network access, and secret access.
+- Agent run requests with a plain-language plan and explicit human approval.
 - Authenticated JSON API routes for board reads and mutations.
 - Portable agent skill/plugin packages for Codex and Claude in `integrations/`.
 
@@ -111,11 +111,11 @@ The app exposes `GET /api/boards/current` as the agent-friendly discovery
 endpoint for the authenticated user's active team board. It also returns the
 user's team memberships so clients can show which team is active.
 
-Tickets do not contain local paths, file globs, or commands. A ticket can select
-one of the active team's GitHub repositories. The agent resolves that repository
-against its own workspace and submits the commands, file scope, network access,
-and secret access it proposes to use. A human approves or rejects that request.
-New approval requests with developer-specific absolute paths are rejected.
+A ticket can select one of the active team's GitHub repositories. The agent
+resolves that repository against its own workspace and submits a plain-language
+plan. A human approves or rejects the ticket run as a whole. Agent Board does not
+store a machine-specific permission policy. Those controls remain in the agent
+runtime on the operator's machine.
 
 ## Team Invitations
 

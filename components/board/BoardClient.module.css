@@ -28,7 +28,6 @@
 .ticketTopline,
 .agentLine,
 .cardMeta,
-.labelRow,
 .statusChip,
 .automationTitle,
 .approvalActions,
@@ -850,7 +849,6 @@
 }
 
 .cardMeta span,
-.labelRow,
 .statusChip {
   gap: 5px;
   border: 1px solid var(--border);
@@ -883,11 +881,6 @@
   border-color: rgba(200, 85, 61, 0.3);
   background: var(--coral-soft);
   color: var(--coral);
-}
-
-.labelRow {
-  width: fit-content;
-  max-width: 100%;
 }
 
 .ticketComposer {

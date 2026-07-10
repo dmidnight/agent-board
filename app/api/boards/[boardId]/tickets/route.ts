@@ -75,22 +75,11 @@ export async function POST(request: Request, { params }: RouteContext) {
     order: columnTickets.length,
     priority: parsed.data.priority ?? "P2",
     agent: "Unassigned",
-    objective: "",
     acceptanceCriteria: [],
-    agentNotes: "",
-    automationHooks: [],
-    executionApproval: {
-      status: "not_requested",
-      executionMode: "plan_only",
-      allowedWorkspace: "",
-      allowedFileGlobs: [],
-      allowedCommands: [],
-      networkAccess: "none",
-      secretAccess: "none",
-      promptInjectionReview: ""
+    runApproval: {
+      status: "not_requested"
     },
-    attachmentsCount: 0,
-    labels: []
+    attachmentsCount: 0
   });
 
   await board.save();

@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { requireOwnedBoard, serializeBoard } from "@/lib/board-service";
 import { jsonError, requireSession } from "@/lib/http";
-import { executionApprovalActionSchema } from "@/lib/validation";
+import { runApprovalActionSchema } from "@/lib/validation";
 
 type RouteContext = {
   params: Promise<{ boardId: string; ticketId: string }>;
@@ -24,29 +24,18 @@ function approvalToObject(approval: any) {
   return approval.toObject ? approval.toObject() : { ...approval };
 }
 
-function normalizeApproval(approval: any) {
-  return {
-    ...approval,
-    executionMode:
-      approval.executionMode === "local_agent" ||
-      approval.executionMode === "ci_runner"
-        ? approval.executionMode
-        : "plan_only"
-  };
-}
-
 export async function POST(request: Request, { params }: RouteContext) {
   const auth = await requireSession();
   if (auth.response) {
     return auth.response;
   }
 
-  const parsed = executionApprovalActionSchema.safeParse(
+  const parsed = runApprovalActionSchema.safeParse(
     await request.json().catch(() => null)
   );
   if (!parsed.success) {
     return jsonError(
-      parsed.error.issues[0]?.message ?? "Execution approval action is invalid."
+      parsed.error.issues[0]?.message ?? "Ticket run approval action is invalid."
     );
   }
 
@@ -69,15 +58,12 @@ export async function POST(request: Request, { params }: RouteContext) {
 
   const now = new Date();
   const actor = actorFromSession(auth.session);
-  const currentApproval = normalizeApproval(
-    approvalToObject(ticket.executionApproval)
-  );
+  const currentApproval = approvalToObject(ticket.runApproval);
 
   switch (parsed.data.action) {
     case "request":
-      ticket.executionApproval = {
+      ticket.runApproval = {
         status: "pending",
-        executionMode: parsed.data.executionMode,
         requestedBy: actor,
         requestedAt: now,
         approvedBy: "",
@@ -85,13 +71,8 @@ export async function POST(request: Request, { params }: RouteContext) {
         rejectedBy: "",
         rejectedAt: null,
         rejectionReason: "",
-        allowedWorkspace: parsed.data.allowedWorkspace,
-        allowedFileGlobs: parsed.data.allowedFileGlobs,
-        allowedCommands: parsed.data.allowedCommands,
-        networkAccess: parsed.data.networkAccess,
-        secretAccess: parsed.data.secretAccess,
         approvalNonce: "",
-        planSummary: parsed.data.planSummary ?? "",
+        planSummary: parsed.data.planSummary,
         promptInjectionReview: parsed.data.promptInjectionReview ?? "",
         resultSummary: ""
       };
@@ -99,10 +80,10 @@ export async function POST(request: Request, { params }: RouteContext) {
 
     case "approve":
       if (currentApproval.status !== "pending") {
-        return jsonError("Only pending execution requests can be approved.");
+        return jsonError("Only pending ticket runs can be approved.");
       }
 
-      ticket.executionApproval = {
+      ticket.runApproval = {
         ...currentApproval,
         status: "approved",
         approvedBy: actor,
@@ -122,7 +103,7 @@ export async function POST(request: Request, { params }: RouteContext) {
         return jsonError("Only requested or approved runs can be rejected.");
       }
 
-      ticket.executionApproval = {
+      ticket.runApproval = {
         ...currentApproval,
         status: "rejected",
         approvedBy: "",
@@ -142,7 +123,7 @@ export async function POST(request: Request, { params }: RouteContext) {
         return jsonError("Only requested or approved runs can expire.");
       }
 
-      ticket.executionApproval = {
+      ticket.runApproval = {
         ...currentApproval,
         status: "expired",
         approvedBy: "",
@@ -156,7 +137,7 @@ export async function POST(request: Request, { params }: RouteContext) {
         return jsonError("Only approved runs can record results.");
       }
 
-      ticket.executionApproval = {
+      ticket.runApproval = {
         ...currentApproval,
         resultSummary: parsed.data.resultSummary
       };

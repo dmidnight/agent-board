@@ -10,9 +10,6 @@ import {
 import type {
   ApprovalStatus,
   BoardPayload,
-  ExecutionMode,
-  NetworkAccess,
-  SecretAccess,
   TeamPayload,
   Ticket
 } from "@/types/board";
@@ -22,8 +19,6 @@ const DEFAULT_COLUMN_TITLES = [
   "In progress",
   "Done"
 ];
-const DEFAULT_EXECUTION_SCOPE = "Current repository checkout";
-const LEGACY_LOCAL_WORKSPACE_SUFFIX = "/Documents/Trello Clone";
 
 function toId(value: unknown) {
   if (value instanceof Types.ObjectId) {
@@ -44,19 +39,6 @@ function serializeCriteria(criteria: any[] = []) {
   }));
 }
 
-function serializeAutomationHooks(hooks: any[] = []) {
-  return hooks.map((hook) => ({
-    name: String(hook.name ?? ""),
-    enabled: Boolean(hook.enabled)
-  }));
-}
-
-function serializeStringList(values: any[] = []) {
-  return values
-    .map((value) => String(value ?? "").trim())
-    .filter(Boolean);
-}
-
 function serializeNullableDate(value?: Date | string | null) {
   if (!value) {
     return null;
@@ -70,14 +52,6 @@ function neutralizeAgentBrand(value: unknown) {
   return String(value ?? "").replace(brandedAgentName, "the local agent");
 }
 
-function serializeAllowedWorkspace(value: unknown) {
-  const workspace = String(value ?? "").trim();
-  return workspace.startsWith("/Users/") &&
-    workspace.endsWith(LEGACY_LOCAL_WORKSPACE_SUFFIX)
-    ? DEFAULT_EXECUTION_SCOPE
-    : workspace;
-}
-
 function serializeApprovalStatus(value: unknown): ApprovalStatus {
   return value === "pending" ||
     value === "approved" ||
@@ -87,22 +61,9 @@ function serializeApprovalStatus(value: unknown): ApprovalStatus {
     : "not_requested";
 }
 
-function serializeExecutionMode(value: unknown): ExecutionMode {
-  return value === "local_agent" || value === "ci_runner" ? value : "plan_only";
-}
-
-function serializeNetworkAccess(value: unknown): NetworkAccess {
-  return value === "allowlisted" || value === "full" ? value : "none";
-}
-
-function serializeSecretAccess(value: unknown): SecretAccess {
-  return value === "allowlisted" ? value : "none";
-}
-
-function serializeExecutionApproval(approval: any = {}) {
+function serializeRunApproval(approval: any = {}) {
   return {
     status: serializeApprovalStatus(approval.status),
-    executionMode: serializeExecutionMode(approval.executionMode),
     requestedBy: String(approval.requestedBy ?? ""),
     requestedAt: serializeNullableDate(approval.requestedAt),
     approvedBy: String(approval.approvedBy ?? ""),
@@ -110,11 +71,6 @@ function serializeExecutionApproval(approval: any = {}) {
     rejectedBy: String(approval.rejectedBy ?? ""),
     rejectedAt: serializeNullableDate(approval.rejectedAt),
     rejectionReason: neutralizeAgentBrand(approval.rejectionReason),
-    allowedWorkspace: serializeAllowedWorkspace(approval.allowedWorkspace),
-    allowedFileGlobs: serializeStringList(approval.allowedFileGlobs),
-    allowedCommands: serializeStringList(approval.allowedCommands),
-    networkAccess: serializeNetworkAccess(approval.networkAccess),
-    secretAccess: serializeSecretAccess(approval.secretAccess),
     approvalNonce: String(approval.approvalNonce ?? ""),
     planSummary: neutralizeAgentBrand(approval.planSummary),
     promptInjectionReview: neutralizeAgentBrand(approval.promptInjectionReview),
@@ -131,9 +87,7 @@ export function serializeBoard(board: any): BoardPayload {
       .map((column) => ({
         id: toId(column._id),
         title: column.title,
-        order: column.order,
-        agentStage: column.agentStage,
-        wipLimit: column.wipLimit ?? null
+        order: column.order
       })),
     tickets: [...board.tickets]
       .sort((a, b) => a.order - b.order)
@@ -148,29 +102,22 @@ export function serializeBoard(board: any): BoardPayload {
         order: ticket.order,
         priority: ticket.priority,
         agent: ticket.agent,
-        objective: ticket.objective ?? "",
         acceptanceCriteria: serializeCriteria(ticket.acceptanceCriteria),
-        agentNotes: ticket.agentNotes ?? "",
-        automationHooks: serializeAutomationHooks(ticket.automationHooks),
-        executionApproval: serializeExecutionApproval(ticket.executionApproval),
+        runApproval: serializeRunApproval(ticket.runApproval),
         attachmentsCount: ticket.attachmentsCount ?? 0,
-        labels: [...(ticket.labels ?? [])].map((label) => String(label)),
         updatedAt: ticketUpdatedAt(ticket)
       }))
   };
 }
 
-function buildDefaultBoard(ownerId: string, teamId: string) {
+function buildDefaultBoard(teamId: string) {
   const columns = DEFAULT_COLUMN_TITLES.map((title, index) => ({
     _id: createObjectId(),
     title,
-    order: index,
-    agentStage: title === "Done" ? "complete" : title === "In progress" ? "active" : "todo",
-    wipLimit: null
+    order: index
   }));
 
   return {
-    ownerId,
     teamId,
     title: "Agent Board",
     columns,
@@ -185,18 +132,7 @@ async function getOrCreateBoardForTeam(context: TeamContext) {
     return board;
   }
 
-  const legacyBoard = await Board.findOne({
-    ownerId: context.user._id,
-    teamId: null
-  });
-
-  if (legacyBoard) {
-    legacyBoard.teamId = context.team._id;
-    await legacyBoard.save();
-    return legacyBoard;
-  }
-
-  return Board.create(buildDefaultBoard(toId(context.user._id), context.teamId));
+  return Board.create(buildDefaultBoard(context.teamId));
 }
 
 export async function getBoardWorkspaceForUser(
@@ -239,24 +175,7 @@ export async function requireOwnedBoard(
   }
 
   const context = await getUserTeamContext(userId, activeTeamId);
-  const board = await Board.findOne({ _id: boardId, teamId: context.team._id });
-  if (board) {
-    return board;
-  }
-
-  const legacyBoard = await Board.findOne({
-    _id: boardId,
-    ownerId: context.user._id,
-    teamId: null
-  });
-
-  if (!legacyBoard) {
-    return null;
-  }
-
-  legacyBoard.teamId = context.team._id;
-  await legacyBoard.save();
-  return legacyBoard;
+  return Board.findOne({ _id: boardId, teamId: context.team._id });
 }
 
 export function getTicketsForColumn(board: any, columnId: string) {

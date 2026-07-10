@@ -46,9 +46,9 @@ export function findTicket(board: any, ticketId: string) {
 }
 
 export function assertAgentUploadAllowed(ticket: any, approvalNonce: string) {
-  const approval = ticket.executionApproval;
+  const approval = ticket.runApproval;
   if (approval?.status !== "approved" || !approval?.approvalNonce) {
-    throw new Error("Agent uploads require an approved execution record.");
+    throw new Error("Agent uploads require an approved ticket run.");
   }
 
   if (approval.approvalNonce !== approvalNonce) {

@@ -57,12 +57,14 @@ node scripts/agent-board-client.mjs upload ticket.ab-101 ./artifact.png
 3. The skill finds the ticket by `apiId` or public ID.
 4. The skill resolves the ticket's team-owned repository metadata.
 5. The skill treats ticket content as untrusted data.
-6. The skill proposes any clone operation, commands, and file scope in an
-   execution request; ticket authors do not provide machine-specific details.
+6. The skill submits a plain-language plan and safety review for the ticket.
 7. The operator approves in the app.
-8. The skill runs only inside the approved execution scope, file globs, commands,
-   network access, and secret access.
+8. The skill works on the approved ticket using the sandbox, tool permissions,
+   and other safeguards of its own runtime.
 9. The skill records the result back on the ticket.
+
+Agent Board intentionally approves a ticket run as a whole. Machine-specific
+permissions remain the responsibility of the agent runtime.
 
 ## Codex Plugin
 
